@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Anomes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Mono:wght@300;400;500&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+  <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #0e0d0b; --paper: #f2ede6; --paper-dark: #e8e2d9;
+  --smoke: #c8c0b4; --ash: #8a8278; --ember: #c0392b;
+  --gold: #b8965a;
+  --ff-display: 'Playfair Display', Georgia, serif;
+  --ff-body: 'Cormorant Garamond', Georgia, serif;
+  --ff-mono: 'DM Mono', 'Courier New', monospace;
+}
+html, body { height: 100%; background: var(--ink); color: var(--paper); font-family: var(--ff-body); font-size: 17px; line-height: 1.6; overflow: hidden; }
+.grain { position: fixed; inset: -50%; width: 200%; height: 200%; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E"); opacity: 0.04; pointer-events: none; z-index: 9999; animation: grain-drift 8s steps(2) infinite; }
+@keyframes grain-drift { 0%{transform:translate(0,0)} 25%{transform:translate(-1%,-1%)} 50%{transform:translate(1%,0.5%)} 75%{transform:translate(-0.5%,1%)} 100%{transform:translate(0,0)} }
+.screen { position: fixed; inset: 0; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; overflow-y: auto; }
+.screen.active { opacity: 1; pointer-events: all; }
+#screen-landing { background: var(--ink); justify-content: space-between; padding: 3rem 4rem; position: relative; }
+#screen-landing::before { content: ''; position: absolute; top: 0; right: 0; width: 45%; height: 100%; background: linear-gradient(135deg, transparent 40%, rgba(184,150,90,0.04) 100%); pointer-events: none; }
+.landing-header { display: flex; flex-direction: column; gap: 0.25rem; }
+.logo { display: flex; align-items: center; gap: 0.75rem; }
+.logo-mark { font-size: 1.6rem; color: var(--gold); animation: pulse-gold 4s ease-in-out infinite; }
+@keyframes pulse-gold { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.logo-text { font-family: var(--ff-mono); font-size: 0.85rem; letter-spacing: 0.35em; color: var(--smoke); font-weight: 500; }
+.logo-sub { font-family: var(--ff-body); font-style: italic; color: var(--ash); font-size: 0.95rem; margin-left: 2.35rem; letter-spacing: 0.05em; }
+.landing-main { display: flex; flex-direction: column; gap: 4rem; max-width: 720px; }
+.headline-block { animation: reveal-up 0.8s ease both; }
+@keyframes reveal-up { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+.headline { font-family: var(--ff-display); font-size: clamp(2.8rem, 6vw, 5rem); font-weight: 900; line-height: 1.05; color: var(--paper); margin-bottom: 1.25rem; }
+.headline em { font-style: italic; color: var(--gold); }
+.subline { font-family: var(--ff-body); font-size: 1.15rem; color: var(--ash); font-style: italic; max-width: 480px; }
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; animation: reveal-up 0.8s 0.2s ease both; max-width: 580px; }
+.action-card { background: transparent; border: 1px solid rgba(200,192,180,0.2); padding: 2rem 1.75rem; cursor: pointer; color: var(--paper); text-align: left; display: flex; flex-direction: column; gap: 0.5rem; transition: border-color 0.25s, background 0.25s; position: relative; overflow: hidden; }
+.action-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 1px; background: var(--gold); transition: width 0.3s ease; }
+.action-card:hover::after { width: 100%; }
+.action-card:hover { border-color: rgba(184,150,90,0.4); background: rgba(184,150,90,0.04); }
+.action-icon { font-size: 1.4rem; color: var(--gold); line-height: 1; }
+.action-label { font-family: var(--ff-display); font-size: 1.2rem; font-weight: 700; }
+.action-desc { font-family: var(--ff-body); font-size: 0.9rem; color: var(--ash); font-style: italic; }
+.landing-footer { font-family: var(--ff-mono); font-size: 0.7rem; color: var(--ash); letter-spacing: 0.1em; text-transform: uppercase; display: flex; gap: 0.75rem; align-items: center; animation: reveal-up 0.8s 0.4s ease both; }
+.sep { color: var(--gold); }
+#screen-create, #screen-join, #screen-username, #screen-room-created { background: var(--ink); align-items: center; justify-content: center; }
+.panel { width: 100%; max-width: 440px; padding: 3rem 2.5rem; border: 1px solid rgba(200,192,180,0.15); position: relative; animation: reveal-up 0.5s ease both; }
+.panel::before { content: ''; position: absolute; top: 0; left: 2rem; width: 3rem; height: 1px; background: var(--gold); }
+.back-btn { background: none; border: none; color: var(--ash); font-family: var(--ff-mono); font-size: 0.78rem; cursor: pointer; letter-spacing: 0.1em; margin-bottom: 2rem; display: block; transition: color 0.2s; padding: 0; }
+.back-btn:hover { color: var(--paper); }
+.panel-title { font-family: var(--ff-display); font-size: 2rem; font-weight: 700; font-style: italic; color: var(--paper); margin-bottom: 0.5rem; }
+.panel-sub { font-family: var(--ff-body); color: var(--ash); font-size: 0.95rem; font-style: italic; margin-bottom: 2rem; }
+.field { margin-bottom: 1.5rem; }
+.field-label { display: block; font-family: var(--ff-mono); font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ash); margin-bottom: 0.5rem; }
+.field-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid rgba(200,192,180,0.3); color: var(--paper); font-family: var(--ff-body); font-size: 1.1rem; padding: 0.5rem 0; outline: none; transition: border-color 0.2s; font-style: italic; }
+.field-input::placeholder { color: var(--ash); opacity: 0.6; }
+.field-input:focus { border-bottom-color: var(--gold); }
+.field-input.mono { font-family: var(--ff-mono); font-style: normal; letter-spacing: 0.15em; font-size: 1rem; }
+.field-hint { font-family: var(--ff-body); font-size: 0.85rem; color: var(--ash); font-style: italic; margin-top: 0.4rem; }
+.toggle-group { display: flex; margin-bottom: 0.5rem; }
+.toggle { flex: 1; background: transparent; border: 1px solid rgba(200,192,180,0.25); color: var(--ash); font-family: var(--ff-mono); font-size: 0.75rem; letter-spacing: 0.12em; padding: 0.6rem; cursor: pointer; transition: all 0.2s; }
+.toggle:first-child { border-right: none; }
+.toggle.active { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.btn-primary { width: 100%; background: var(--paper); border: none; color: var(--ink); font-family: var(--ff-mono); font-size: 0.78rem; letter-spacing: 0.2em; text-transform: uppercase; padding: 1rem; cursor: pointer; transition: background 0.2s; margin-top: 1rem; }
+.btn-primary:hover { background: var(--gold); }
+.btn-copy { background: transparent; border: 1px solid var(--gold); color: var(--gold); font-family: var(--ff-mono); font-size: 0.75rem; letter-spacing: 0.15em; padding: 0.5rem 1rem; cursor: pointer; transition: all 0.2s; margin-top: 0.75rem; display: block; }
+.btn-copy:hover { background: var(--gold); color: var(--ink); }
+.btn-danger { background: transparent; border: 1px solid rgba(192,57,43,0.5); color: var(--ember); font-family: var(--ff-mono); font-size: 0.7rem; letter-spacing: 0.1em; padding: 0.45rem 0.75rem; cursor: pointer; transition: all 0.2s; }
+.btn-danger:hover { background: var(--ember); color: var(--paper); border-color: var(--ember); }
+.btn-leave { background: none; border: none; color: var(--ash); font-family: var(--ff-mono); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: color 0.2s; padding: 0; margin-top: auto; }
+.btn-leave:hover { color: var(--ember); }
+.error-msg { color: var(--ember); font-family: var(--ff-mono); font-size: 0.75rem; margin-top: 0.75rem; min-height: 1rem; letter-spacing: 0.05em; }
+.success-mark { font-size: 2rem; color: var(--gold); margin-bottom: 1rem; animation: pulse-gold 2s infinite; }
+.code-display { font-family: var(--ff-mono); font-size: 2rem; letter-spacing: 0.4em; color: var(--paper); border: 1px solid rgba(200,192,180,0.2); padding: 1rem 1.5rem; text-align: center; margin-top: 1rem; }
+#screen-chat { padding: 0; overflow: hidden; }
+.chat-layout { display: flex; height: 100vh; width: 100%; }
+.chat-sidebar { width: 240px; min-width: 240px; border-right: 1px solid rgba(200,192,180,0.12); display: flex; flex-direction: column; padding: 2rem 1.5rem; gap: 2rem; background: rgba(0,0,0,0.2); }
+.chat-logo { font-family: var(--ff-mono); font-size: 0.72rem; letter-spacing: 0.25em; color: var(--gold); }
+.room-name-display { font-family: var(--ff-display); font-size: 1.1rem; font-style: italic; color: var(--paper); margin-top: 0.5rem; }
+.room-code-display { font-family: var(--ff-mono); font-size: 0.7rem; letter-spacing: 0.2em; color: var(--ash); margin-top: 0.25rem; }
+.chat-user-info { display: flex; flex-direction: column; gap: 0.2rem; }
+.you-label { font-family: var(--ff-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.18em; color: var(--ash); }
+.you-name { font-family: var(--ff-display); font-size: 1.1rem; font-style: italic; color: var(--gold); }
+.owner-panel { display: flex; flex-direction: column; gap: 0.75rem; }
+.owner-panel-title { font-family: var(--ff-mono); font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ash); padding-bottom: 0.4rem; border-bottom: 1px solid rgba(200,192,180,0.1); }
+.chat-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.messages-area { flex: 1; overflow-y: auto; padding: 2rem; display: flex; flex-direction: column; gap: 0.25rem; scrollbar-width: thin; scrollbar-color: rgba(200,192,180,0.15) transparent; }
+.messages-empty { margin: auto; font-family: var(--ff-body); font-style: italic; color: var(--ash); font-size: 1.05rem; }
+.message { display: flex; flex-direction: column; padding: 0.6rem 0; border-bottom: 1px solid rgba(200,192,180,0.05); animation: msg-in 0.3s ease; }
+@keyframes msg-in { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+.message-header { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.2rem; }
+.message-author { font-family: var(--ff-mono); font-size: 0.75rem; color: var(--gold); letter-spacing: 0.05em; }
+.message-time { font-family: var(--ff-mono); font-size: 0.65rem; color: var(--ash); }
+.message-content { font-family: var(--ff-body); font-size: 1rem; color: var(--paper); line-height: 1.5; }
+.chat-input-bar { display: flex; border-top: 1px solid rgba(200,192,180,0.12); padding: 1rem 2rem; gap: 1rem; align-items: center; }
+.chat-input { flex: 1; background: transparent; border: none; border-bottom: 1px solid rgba(200,192,180,0.2); color: var(--paper); font-family: var(--ff-body); font-size: 1rem; font-style: italic; padding: 0.4rem 0; outline: none; transition: border-color 0.2s; }
+.chat-input::placeholder { color: var(--ash); opacity: 0.5; }
+.chat-input:focus { border-bottom-color: var(--gold); }
+.chat-send { background: none; border: 1px solid rgba(200,192,180,0.2); color: var(--smoke); font-family: var(--ff-mono); font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.5rem 1.25rem; cursor: pointer; transition: all 0.2s; }
+.chat-send:hover { border-color: var(--gold); color: var(--gold); }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(200,192,180,0.15); border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div class="grain"></div>
+
+  <div id="screen-landing" class="screen active">
+    <header class="landing-header">
+      <div class="logo">
+        <span class="logo-mark">◈</span>
+        <span class="logo-text">ANOMES</span>
+      </div>
+      <p class="logo-sub">anonymous correspondence</p>
+    </header>
+    <main class="landing-main">
+      <div class="headline-block">
+        <h1 class="headline"><em>Speak freely.</em><br>Leave no trace.</h1>
+        <p class="subline">Ephemeral rooms. Anonymous voices. No accounts, no logs, no history.</p>
+      </div>
+      <div class="action-grid">
+        <button class="action-card" id="btn-create">
+          <span class="action-icon">⊕</span>
+          <span class="action-label">Create a Room</span>
+          <span class="action-desc">Open a space. Invite who you choose.</span>
+        </button>
+        <button class="action-card" id="btn-join">
+          <span class="action-icon">→</span>
+          <span class="action-label">Join a Room</span>
+          <span class="action-desc">Enter a code. Pick a name. Disappear.</span>
+        </button>
+      </div>
+    </main>
+    <footer class="landing-footer">
+      <span>Powered by discord infrastructure</span>
+      <span class="sep">·</span>
+      <span>No data stored on our servers</span>
+    </footer>
+  </div>
+
+  <div id="screen-create" class="screen">
+    <div class="panel">
+      <button class="back-btn" data-target="screen-landing">← back</button>
+      <h2 class="panel-title">Open a Room</h2>
+      <div class="field">
+        <label class="field-label">Room Name</label>
+        <input class="field-input" id="create-name" type="text" placeholder="e.g. The Black Lodge" maxlength="40"/>
+      </div>
+      <div class="field">
+        <label class="field-label">Visibility</label>
+        <div class="toggle-group">
+          <button class="toggle active" id="toggle-public">Public</button>
+          <button class="toggle" id="toggle-private">Private</button>
+        </div>
+        <p class="field-hint" id="visibility-hint">Anyone with the code can join.</p>
+      </div>
+      <button class="btn-primary" id="btn-do-create">Create Room</button>
+      <p class="error-msg" id="create-error"></p>
+    </div>
+  </div>
+
+  <div id="screen-join" class="screen">
+    <div class="panel">
+      <button class="back-btn" data-target="screen-landing">← back</button>
+      <h2 class="panel-title">Enter a Room</h2>
+      <div class="field">
+        <label class="field-label">Room Code</label>
+        <input class="field-input mono" id="join-code" type="text" placeholder="e.g. A3F9C2D1" maxlength="8"/>
+      </div>
+      <button class="btn-primary" id="btn-do-join">Continue</button>
+      <p class="error-msg" id="join-error"></p>
+    </div>
+  </div>
+
+  <div id="screen-username" class="screen">
+    <div class="panel">
+      <h2 class="panel-title">Choose Your Alias</h2>
+      <p class="panel-sub">This name is temporary. Choose wisely — or carelessly.</p>
+      <div class="field">
+        <label class="field-label">Alias</label>
+        <input class="field-input" id="username-input" type="text" placeholder="e.g. The Stranger" maxlength="32"/>
+      </div>
+      <button class="btn-primary" id="btn-do-username">Enter Room</button>
+      <p class="error-msg" id="username-error"></p>
+    </div>
+  </div>
+
+  <div id="screen-room-created" class="screen">
+    <div class="panel">
+      <div class="success-mark">◈</div>
+      <h2 class="panel-title">Room Opened</h2>
+      <p class="panel-sub">Share this code with those you trust.</p>
+      <div class="code-display" id="created-code-display"></div>
+      <button class="btn-copy" id="btn-copy-code">Copy Code</button>
+      <p class="panel-sub" style="margin-top:2rem;">Now choose your alias to enter.</p>
+      <div class="field">
+        <input class="field-input" id="owner-username-input" type="text" placeholder="Your alias" maxlength="32"/>
+      </div>
+      <button class="btn-primary" id="btn-enter-own-room">Enter Your Room</button>
+      <p class="error-msg" id="owner-username-error"></p>
+    </div>
+  </div>
+
+  <div id="screen-chat" class="screen">
+    <div class="chat-layout">
+      <div class="chat-sidebar">
+        <div class="chat-room-info">
+          <div class="chat-logo">◈ ANOMES</div>
+          <div class="room-name-display" id="chat-room-name">—</div>
+          <div class="room-code-display" id="chat-room-code">—</div>
+        </div>
+        <div class="chat-user-info">
+          <span class="you-label">you are</span>
+          <span class="you-name" id="chat-username">—</span>
+        </div>
+        <div class="owner-panel" id="owner-panel" style="display:none">
+          <div class="owner-panel-title">Owner Controls</div>
+          <div class="field" style="margin-bottom:0.5rem">
+            <input class="field-input mono" id="kick-input" type="text" placeholder="username to kick"/>
+            <button class="btn-danger" id="btn-kick" style="margin-top:0.4rem;width:100%">Kick</button>
+          </div>
+          <div class="field">
+            <input class="field-input mono" id="ban-input" type="text" placeholder="username to ban"/>
+            <button class="btn-danger" id="btn-ban" style="margin-top:0.4rem;width:100%">Ban</button>
+          </div>
+        </div>
+        <button class="btn-leave" id="btn-leave">Leave Room</button>
+      </div>
+      <div class="chat-main">
+        <div class="messages-area" id="messages-area">
+          <div class="messages-empty">Silence. Begin speaking.</div>
+        </div>
+        <div class="chat-input-bar">
+          <input class="chat-input" id="chat-input" type="text" placeholder="Say something..." maxlength="2000"/>
+          <button class="chat-send" id="chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+const API = "http://localhost:5000/api";
+const POLL_INTERVAL = 3000;
+let state = { roomCode:null, roomName:null, sessionToken:null, username:null, ownerToken:null, lastMessageIds:new Set(), pollTimer:null };
+
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+document.querySelectorAll(".back-btn").forEach(btn => btn.addEventListener("click", () => showScreen(btn.dataset.target)));
+document.getElementById("btn-create").addEventListener("click", () => showScreen("screen-create"));
+document.getElementById("btn-join").addEventListener("click", () => showScreen("screen-join"));
+
+let isPrivate = false;
+document.getElementById("toggle-public").addEventListener("click", () => {
+  isPrivate = false;
+  document.getElementById("toggle-public").classList.add("active");
+  document.getElementById("toggle-private").classList.remove("active");
+  document.getElementById("visibility-hint").textContent = "Anyone with the code can join.";
+});
+document.getElementById("toggle-private").addEventListener("click", () => {
+  isPrivate = true;
+  document.getElementById("toggle-private").classList.add("active");
+  document.getElementById("toggle-public").classList.remove("active");
+  document.getElementById("visibility-hint").textContent = "Room is hidden. Share the code manually.";
+});
+
+document.getElementById("btn-do-create").addEventListener("click", async () => {
+  const name = document.getElementById("create-name").value.trim();
+  const errEl = document.getElementById("create-error");
+  errEl.textContent = "";
+  if (!name) { errEl.textContent = "A room needs a name."; return; }
+  try {
+    const res = await fetch(`${API}/rooms/create`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name, is_private:isPrivate}) });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || "Failed to create room."; return; }
+    state.roomCode = data.room_code; state.roomName = name; state.ownerToken = data.owner_token;
+    document.getElementById("created-code-display").textContent = data.room_code;
+    showScreen("screen-room-created");
+  } catch(e) { errEl.textContent = "Could not reach server."; }
+});
+
+document.getElementById("btn-copy-code").addEventListener("click", () => {
+  navigator.clipboard.writeText(state.roomCode).then(() => {
+    const btn = document.getElementById("btn-copy-code");
+    btn.textContent = "Copied ✓";
+    setTimeout(() => { btn.textContent = "Copy Code"; }, 2000);
+  });
+});
+
+document.getElementById("btn-enter-own-room").addEventListener("click", async () => {
+  const username = document.getElementById("owner-username-input").value.trim();
+  const errEl = document.getElementById("owner-username-error");
+  errEl.textContent = "";
+  if (!username) { errEl.textContent = "Choose an alias."; return; }
+  await enterRoom(state.roomCode, state.roomName, username, errEl);
+});
+
+document.getElementById("btn-do-join").addEventListener("click", async () => {
+  const code = document.getElementById("join-code").value.trim().toUpperCase();
+  const errEl = document.getElementById("join-error");
+  errEl.textContent = "";
+  if (!code) { errEl.textContent = "Enter a room code."; return; }
+  try {
+    const res = await fetch(`${API}/rooms/${code}`);
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || "Room not found."; return; }
+    state.roomCode = code; state.roomName = data.name;
+    showScreen("screen-username");
+  } catch(e) { errEl.textContent = "Could not reach server."; }
+});
+
+document.getElementById("btn-do-username").addEventListener("click", async () => {
+  const username = document.getElementById("username-input").value.trim();
+  const errEl = document.getElementById("username-error");
+  errEl.textContent = "";
+  if (!username) { errEl.textContent = "Choose an alias."; return; }
+  await enterRoom(state.roomCode, state.roomName, username, errEl);
+});
+
+async function enterRoom(roomCode, roomName, username, errEl) {
+  try {
+    const res = await fetch(`${API}/rooms/${roomCode}/join`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username}) });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || "Could not join room."; return; }
+    state.sessionToken = data.session_token; state.username = username;
+    document.getElementById("chat-room-name").textContent = roomName;
+    document.getElementById("chat-room-code").textContent = roomCode;
+    document.getElementById("chat-username").textContent = username;
+    if (state.ownerToken) document.getElementById("owner-panel").style.display = "flex";
+    const area = document.getElementById("messages-area");
+    area.innerHTML = '<div class="messages-empty">Silence. Begin speaking.</div>';
+    state.lastMessageIds = new Set();
+    showScreen("screen-chat");
+    startPolling();
+  } catch(e) { errEl.textContent = "Could not reach server."; }
+}
+
+function startPolling() { stopPolling(); fetchMessages(); state.pollTimer = setInterval(fetchMessages, POLL_INTERVAL); }
+function stopPolling() { if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; } }
+
+async function fetchMessages() {
+  try {
+    const res = await fetch(`${API}/rooms/${state.roomCode}/messages`);
+    const data = await res.json();
+    if (!res.ok) return;
+    const area = document.getElementById("messages-area");
+    const isEmpty = area.querySelector(".messages-empty");
+    let addedAny = false;
+    data.messages.forEach(msg => {
+      if (state.lastMessageIds.has(msg.id)) return;
+      state.lastMessageIds.add(msg.id);
+      if (isEmpty) isEmpty.remove();
+      const el = document.createElement("div");
+      el.className = "message";
+      const time = new Date(msg.timestamp).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+      el.innerHTML = `<div class="message-header"><span class="message-author">${escHtml(msg.username)}</span><span class="message-time">${time}</span></div><div class="message-content">${escHtml(msg.content)}</div>`;
+      area.appendChild(el);
+      addedAny = true;
+    });
+    if (addedAny) area.scrollTop = area.scrollHeight;
+  } catch(e) {}
+}
+
+async function sendMessage() {
+  const input = document.getElementById("chat-input");
+  const content = input.value.trim();
+  if (!content) return;
+  input.value = "";
+  try {
+    await fetch(`${API}/rooms/${state.roomCode}/send`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({session_token:state.sessionToken, content}) });
+  } catch(e) {}
+}
+
+document.getElementById("chat-send").addEventListener("click", sendMessage);
+document.getElementById("chat-input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+
+document.getElementById("btn-kick").addEventListener("click", async () => {
+  const u = document.getElementById("kick-input").value.trim();
+  if (!u) return;
+  await ownerAction("kick", u);
+  document.getElementById("kick-input").value = "";
+});
+document.getElementById("btn-ban").addEventListener("click", async () => {
+  const u = document.getElementById("ban-input").value.trim();
+  if (!u) return;
+  await ownerAction("ban", u);
+  document.getElementById("ban-input").value = "";
+});
+async function ownerAction(action, username) {
+  try { await fetch(`${API}/rooms/${state.roomCode}/${action}`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({owner_token:state.ownerToken, username}) }); } catch(e) {}
+}
+
+document.getElementById("btn-leave").addEventListener("click", () => {
+  stopPolling();
+  state = { roomCode:null, roomName:null, sessionToken:null, username:null, ownerToken:null, lastMessageIds:new Set(), pollTimer:null };
+  document.getElementById("owner-panel").style.display = "none";
+  ["create-name","join-code","username-input","owner-username-input"].forEach(id => document.getElementById(id).value = "");
+  showScreen("screen-landing");
+});
+
+function escHtml(str) { return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  </script>
+</body>
+</html>
