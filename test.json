@@ -1,3 +1,4 @@
 {
- Sigma: True
+ "Json": true
+ "YAML": false
 }
