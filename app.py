@@ -10,11 +10,14 @@ from bot import AnomesBot
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+_origins = [o.strip() for o in _raw_origins.split(",")] if _raw_origins != "*" else "*"
+CORS(app, origins=_origins, supports_credentials=True, allow_headers=["Content-Type", "ngrok-skip-browser-warning"])
 
 # In-memory state (replace with SQLite for persistence)
-rooms = {}       # room_code -> { channel_id, name, owner_token, is_private, banned }
-sessions = {}    # session_token -> { room_code, username, webhook_url }
+rooms = {}    # room_code -> { channel_id, webhook_url, name, owner_token, is_private, banned }
+sessions = {} # session_token -> { room_code, username }
 
 bot = AnomesBot()
 
@@ -25,7 +28,7 @@ bot_thread = threading.Thread(target=run_bot, daemon=True)
 bot_thread.start()
 
 
-# ── Rooms ────────────────────────────────────────────────────────────────────
+# Rooms
 
 @app.route("/api/rooms/create", methods=["POST"])
 def create_room():
@@ -39,17 +42,22 @@ def create_room():
     room_code = str(uuid.uuid4())[:8].upper()
     owner_token = str(uuid.uuid4())
 
-    # Bot creates the Discord channel
     channel_id = bot.sync_create_channel(name, is_private, room_code)
     if not channel_id:
         return jsonify({"error": "Failed to create Discord channel"}), 500
 
+    # Get the webhook that was created with the channel
+    webhook_url = bot.sync_get_webhook_url(channel_id)
+    if not webhook_url:
+        return jsonify({"error": "Failed to get webhook"}), 500
+
     rooms[room_code] = {
         "name": name,
         "channel_id": channel_id,
+        "webhook_url": webhook_url,   # shared webhook for the room
         "owner_token": owner_token,
         "is_private": is_private,
-        "banned": [],        # list of banned usernames
+        "banned": [],
     }
 
     return jsonify({
@@ -85,16 +93,11 @@ def join_room(room_code):
     if username in room["banned"]:
         return jsonify({"error": "You are banned from this room"}), 403
 
-    # Create a webhook for this user's session
-    webhook_url = bot.sync_create_webhook(room["channel_id"], username)
-    if not webhook_url:
-        return jsonify({"error": "Failed to create webhook"}), 500
-
+    # No per-user webhook needed — we use the room's shared webhook with username override
     session_token = str(uuid.uuid4())
     sessions[session_token] = {
         "room_code": room_code,
         "username": username,
-        "webhook_url": webhook_url,
     }
 
     return jsonify({
@@ -103,7 +106,7 @@ def join_room(room_code):
     })
 
 
-# ── Messages ──────────────────────────────────────────────────────────────────
+# Messages
 
 @app.route("/api/rooms/<room_code>/messages", methods=["GET"])
 def get_messages(room_code):
@@ -131,14 +134,16 @@ def send_message(room_code):
     if not content:
         return jsonify({"error": "Message cannot be empty"}), 400
 
-    success = bot.sync_send_webhook(session["webhook_url"], content)
+    room = rooms.get(room_code)
+    # Pass username so Discord shows the alias, not "anomes-hook"
+    success = bot.sync_send_webhook(room["webhook_url"], content, session["username"])
     if not success:
         return jsonify({"error": "Failed to send message"}), 500
 
     return jsonify({"ok": True})
 
 
-# ── Owner actions ─────────────────────────────────────────────────────────────
+# Owner actions
 
 @app.route("/api/rooms/<room_code>/kick", methods=["POST"])
 def kick_user(room_code):
@@ -152,7 +157,6 @@ def kick_user(room_code):
     if room["owner_token"] != owner_token:
         return jsonify({"error": "Not authorized"}), 403
 
-    # Invalidate all sessions for this username in this room
     to_remove = [
         t for t, s in sessions.items()
         if s["room_code"] == room_code and s["username"] == target_username
@@ -178,7 +182,6 @@ def ban_user(room_code):
     if target_username not in room["banned"]:
         room["banned"].append(target_username)
 
-    # Also kick them
     to_remove = [
         t for t, s in sessions.items()
         if s["room_code"] == room_code and s["username"] == target_username
@@ -190,4 +193,5 @@ def ban_user(room_code):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.getenv("FLASK_PORT", 5000))
+    app.run(debug=True, port=port)
