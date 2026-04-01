@@ -99,11 +99,11 @@ def create_room():
     room_code = str(uuid.uuid4())[:8].upper()
     owner_token = str(uuid.uuid4())
 
-    channel_id = bot.screate_channel(name, is_private, room_code)
+    channel_id = asyncio.run(bot.create_channel(name, is_private, room_code))
     if not channel_id:
         return jsonify({"error": "Failed to create Discord channel"}), 500
 
-    webhook_url = bot.get_webhook_url(channel_id)
+    webhook_url = asyncio.run(bot.get_webhook_url(channel_id))
     if not webhook_url:
         return jsonify({"error": "Failed to get webhook"}), 500
 
