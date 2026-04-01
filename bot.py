@@ -6,6 +6,7 @@ from discord.ext import commands
 
 GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
 CATEGORY_NAME = "ANOMES-ROOMS"
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")  # must be set in Render environment
 
 
 class AnomesBot(commands.Bot):
@@ -27,7 +28,6 @@ class AnomesBot(commands.Bot):
         return await guild.create_category(CATEGORY_NAME)
 
     # Channel
-
     async def create_channel(self, name, is_private, room_code):
         guild = self._get_guild()
         if not guild:
@@ -43,28 +43,12 @@ class AnomesBot(commands.Bot):
         await channel.create_webhook(name="anomes-hook")
         return channel.id
 
-    def sync_create_channel(self, name, is_private, room_code):
-        future = asyncio.run_coroutine_threadsafe(self.create_channel(name, is_private, room_code), self.loop)
-        try:
-            return future.result(timeout=10)
-        except Exception as e:
-            print(f"[Bot] create_channel error: {e}")
-            return None
-
     async def delete_channel(self, channel_id):
         channel = self.get_channel(channel_id)
         if channel:
             await channel.delete(reason="Anomes room expired due to inactivity")
 
-    def sync_delete_channel(self, channel_id):
-        future = asyncio.run_coroutine_threadsafe(self.delete_channel(channel_id), self.loop)
-        try:
-            future.result(timeout=10)
-        except Exception as e:
-            print(f"[Bot] delete_channel error: {e}")
-
     # Webhook
-
     async def get_webhook_url(self, channel_id):
         channel = self.get_channel(channel_id)
         if not channel:
@@ -75,16 +59,7 @@ class AnomesBot(commands.Bot):
         webhook = await channel.create_webhook(name="anomes-hook")
         return webhook.url
 
-    def sync_get_webhook_url(self, channel_id):
-        future = asyncio.run_coroutine_threadsafe(self.get_webhook_url(channel_id), self.loop)
-        try:
-            return future.result(timeout=10)
-        except Exception as e:
-            print(f"[Bot] get_webhook_url error: {e}")
-            return None
-
     # Messages
-
     async def get_messages(self, channel_id, limit=50):
         channel = self.get_channel(channel_id)
         if not channel:
@@ -99,23 +74,16 @@ class AnomesBot(commands.Bot):
             })
         return messages
 
-    def sync_get_messages(self, channel_id):
-        future = asyncio.run_coroutine_threadsafe(self.get_messages(channel_id), self.loop)
-        try:
-            return future.result(timeout=10)
-        except Exception as e:
-            print(f"[Bot] get_messages error: {e}")
-            return []
-
     async def send_webhook(self, webhook_url, content, username):
         payload = {"content": content, "username": username}
         resp = http_requests.post(webhook_url, json=payload)
         return resp.status_code in (200, 204)
 
-    def sync_send_webhook(self, webhook_url, content, username):
-        future = asyncio.run_coroutine_threadsafe(self.send_webhook(webhook_url, content, username), self.loop)
-        try:
-            return future.result(timeout=10)
-        except Exception as e:
-            print(f"[Bot] send_webhook error: {e}")
-            return False
+
+if __name__ == "__main__":
+    if not DISCORD_TOKEN or GUILD_ID == 0:
+        print("[Error] DISCORD_TOKEN or DISCORD_GUILD_ID not set in environment")
+        exit(1)
+
+    bot = AnomesBot()
+    bot.run(DISCORD_TOKEN)
