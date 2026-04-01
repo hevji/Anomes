@@ -22,11 +22,17 @@ sessions = {} # session_token -> { room_code, username, last_active_at }
 SESSION_TIMEOUT  = 5  * 60  # 5 min  — auto-expire idle sessions
 ROOM_TIMEOUT     = 10 * 60  # 10 min — auto-delete rooms with no messages
 
+# Initialize bot
 bot = AnomesBot()
 
 def run_bot():
-    asyncio.run(bot.start(os.getenv("DISCORD_TOKEN")))
+    token = os.getenv("DISCORD_TOKEN")
+    if not token:
+        print("[Error] DISCORD_TOKEN not set")
+        return
+    asyncio.run(bot.start(token))
 
+# Start bot in a daemon thread
 bot_thread = threading.Thread(target=run_bot, daemon=True)
 bot_thread.start()
 
@@ -62,7 +68,6 @@ janitor_thread.start()
 
 @app.route("/api/rooms", methods=["GET"])
 def list_rooms():
-    """Return all public rooms with active user count."""
     public = []
     now = time.time()
     for code, room in rooms.items():
@@ -78,7 +83,6 @@ def list_rooms():
             "active_users": active_users,
             "last_message_at": room["last_message_at"],
         })
-    # Sort by most recently active
     public.sort(key=lambda r: r["last_message_at"], reverse=True)
     return jsonify({"rooms": public})
 
@@ -147,8 +151,6 @@ def join_room(room_code):
     return jsonify({"session_token": session_token, "username": username})
 
 
-# ── Messages ──────────────────────────────────────────────────────────────────
-
 @app.route("/api/rooms/<room_code>/messages", methods=["GET"])
 def get_messages(room_code):
     room = rooms.get(room_code)
@@ -173,19 +175,16 @@ def send_message(room_code):
     if not content:
         return jsonify({"error": "Message cannot be empty"}), 400
 
-    room = rooms.get(room_code)
+    room = rooms[room_code]
     success = bot.sync_send_webhook(room["webhook_url"], content, session["username"])
     if not success:
         return jsonify({"error": "Failed to send message"}), 500
 
-    # Refresh activity timestamps
     sessions[session_token]["last_active_at"] = time.time()
     rooms[room_code]["last_message_at"] = time.time()
 
     return jsonify({"ok": True})
 
-
-# ── Owner actions ─────────────────────────────────────────────────────────────
 
 @app.route("/api/rooms/<room_code>/kick", methods=["POST"])
 def kick_user(room_code):
@@ -223,4 +222,5 @@ def ban_user(room_code):
 
 if __name__ == "__main__":
     port = int(os.getenv("FLASK_PORT", 5000))
-    app.run(debug=True, port=port)
+    # Render-compatible: debug=False prevents reloader conflicts
+    app.run(host="0.0.0.0", port=port, debug=False)
