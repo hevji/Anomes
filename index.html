@@ -103,6 +103,37 @@ html, body { height: 100%; background: var(--ink); color: var(--paper); font-fam
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(200,192,180,0.15); border-radius: 2px; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(14,13,11,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; backdrop-filter: blur(4px); }
+.modal-overlay.active { opacity: 1; pointer-events: all; }
+.modal { background: var(--ink); border: 1px solid rgba(200,192,180,0.2); max-width: 480px; width: 90%; padding: 3rem 2.5rem; position: relative; animation: reveal-up 0.4s ease both; }
+.modal::before { content: ''; position: absolute; top: 0; left: 2rem; width: 3rem; height: 1px; background: var(--gold); }
+.modal-title { font-family: var(--ff-display); font-size: 1.6rem; font-style: italic; font-weight: 700; color: var(--paper); margin-bottom: 1.5rem; }
+.modal-rule { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+.modal-rule-icon { color: var(--gold); font-size: 1rem; margin-top: 0.15rem; flex-shrink: 0; }
+.modal-rule-text { font-family: var(--ff-body); font-size: 1rem; color: var(--smoke); line-height: 1.5; }
+.modal-rule-text strong { color: var(--paper); font-weight: 400; }
+.modal-dismiss { margin-top: 2rem; width: 100%; background: var(--paper); border: none; color: var(--ink); font-family: var(--ff-mono); font-size: 0.78rem; letter-spacing: 0.2em; text-transform: uppercase; padding: 1rem; cursor: pointer; transition: background 0.2s; }
+.modal-dismiss:hover { background: var(--gold); }
+
+/* Room list */
+.room-list { display: flex; flex-direction: column; gap: 0; margin-bottom: 1.5rem; max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(200,192,180,0.15) transparent; }
+.room-list-empty { font-family: var(--ff-body); font-style: italic; color: var(--ash); font-size: 1rem; padding: 2rem 0; text-align: center; }
+.room-item { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 0; border-bottom: 1px solid rgba(200,192,180,0.08); cursor: pointer; transition: all 0.15s; gap: 1rem; }
+.room-item:first-child { border-top: 1px solid rgba(200,192,180,0.08); }
+.room-item:hover .room-item-name { color: var(--gold); }
+.room-item-info { display: flex; flex-direction: column; gap: 0.15rem; }
+.room-item-name { font-family: var(--ff-display); font-size: 1.05rem; font-style: italic; color: var(--paper); transition: color 0.15s; }
+.room-item-meta { font-family: var(--ff-mono); font-size: 0.65rem; letter-spacing: 0.1em; color: var(--ash); }
+.room-item-code { font-family: var(--ff-mono); font-size: 0.7rem; letter-spacing: 0.15em; color: var(--ash); }
+.room-item-arrow { color: var(--gold); font-size: 0.9rem; opacity: 0; transition: opacity 0.15s; }
+.room-item:hover .room-item-arrow { opacity: 1; }
+.join-divider { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+.join-divider-line { flex: 1; height: 1px; background: rgba(200,192,180,0.12); }
+.join-divider-text { font-family: var(--ff-mono); font-size: 0.65rem; letter-spacing: 0.2em; color: var(--ash); text-transform: uppercase; }
+.rooms-loading { font-family: var(--ff-mono); font-size: 0.75rem; color: var(--ash); text-align: center; padding: 1.5rem 0; letter-spacing: 0.1em; animation: pulse-gold 1.5s infinite; }
+
   </style>
 </head>
 <body>
@@ -162,10 +193,46 @@ html, body { height: 100%; background: var(--ink); color: var(--paper); font-fam
     </div>
   </div>
 
+  <!-- Ephemeral notice modal -->
+  <div class="modal-overlay active" id="modal-notice">
+    <div class="modal">
+      <div class="modal-title">Before you enter.</div>
+      <div class="modal-rule">
+        <span class="modal-rule-icon">◈</span>
+        <span class="modal-rule-text"><strong>Rooms vanish.</strong> Any room with no messages for <strong>10 minutes</strong> is permanently deleted — along with its history.</span>
+      </div>
+      <div class="modal-rule">
+        <span class="modal-rule-icon">◈</span>
+        <span class="modal-rule-text"><strong>Sessions expire.</strong> If you go idle for <strong>5 minutes</strong>, your alias is released from the room.</span>
+      </div>
+      <div class="modal-rule">
+        <span class="modal-rule-icon">◈</span>
+        <span class="modal-rule-text"><strong>No accounts.</strong> There is no login, no history, no recovery. Once it's gone, it's gone.</span>
+      </div>
+      <div class="modal-rule">
+        <span class="modal-rule-icon">◈</span>
+        <span class="modal-rule-text"><strong>Private rooms</strong> are unlisted. <strong>Public rooms</strong> appear in the room browser for anyone to join.</span>
+      </div>
+      <button class="modal-dismiss" id="btn-modal-dismiss">I understand — let me in</button>
+    </div>
+  </div>
+
   <div id="screen-join" class="screen">
     <div class="panel">
       <button class="back-btn" data-target="screen-landing">← back</button>
       <h2 class="panel-title">Enter a Room</h2>
+
+      <div id="rooms-list-container">
+        <div class="rooms-loading" id="rooms-loading">scanning for open rooms...</div>
+        <div class="room-list" id="room-list" style="display:none"></div>
+      </div>
+
+      <div class="join-divider">
+        <div class="join-divider-line"></div>
+        <div class="join-divider-text">or enter a code</div>
+        <div class="join-divider-line"></div>
+      </div>
+
       <div class="field">
         <label class="field-label">Room Code</label>
         <input class="field-input mono" id="join-code" type="text" placeholder="e.g. A3F9C2D1" maxlength="8"/>
@@ -245,8 +312,6 @@ html, body { height: 100%; background: var(--ink); color: var(--paper); font-fam
 const API = "http://localhost:5000/api";
 const POLL_INTERVAL = 3000;
 
-// ngrok-skip-browser-warning bypasses ngrok's interstitial HTML page
-// so fetch gets JSON instead of an HTML page that breaks JSON.parse
 const HEADERS = {
   "Content-Type": "application/json",
   "ngrok-skip-browser-warning": "true",
@@ -254,20 +319,79 @@ const HEADERS = {
 
 let state = { roomCode:null, roomName:null, sessionToken:null, username:null, ownerToken:null, lastMessageIds:new Set(), pollTimer:null };
 
+// ── Modal ──────────────────────────────────────────────────────────────────
+document.getElementById("btn-modal-dismiss").addEventListener("click", () => {
+  document.getElementById("modal-notice").classList.remove("active");
+});
+
+// ── Screen navigation ──────────────────────────────────────────────────────
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
+  if (id === "screen-join") loadRooms();
 }
 document.querySelectorAll(".back-btn").forEach(btn => btn.addEventListener("click", () => showScreen(btn.dataset.target)));
 document.getElementById("btn-create").addEventListener("click", () => showScreen("screen-create"));
 document.getElementById("btn-join").addEventListener("click", () => showScreen("screen-join"));
 
+// ── Room list ──────────────────────────────────────────────────────────────
+async function loadRooms() {
+  const loading = document.getElementById("rooms-loading");
+  const list = document.getElementById("room-list");
+  loading.style.display = "block";
+  list.style.display = "none";
+  list.innerHTML = "";
+
+  try {
+    const res = await fetch(`${API}/rooms`, { headers: HEADERS });
+    const data = await res.json();
+    loading.style.display = "none";
+    list.style.display = "flex";
+
+    if (!data.rooms || data.rooms.length === 0) {
+      list.innerHTML = '<div class="room-list-empty">No open rooms. Be the first.</div>';
+      return;
+    }
+
+    data.rooms.forEach(room => {
+      const item = document.createElement("div");
+      item.className = "room-item";
+      const ago = timeAgo(room.last_message_at);
+      const users = room.active_users === 1 ? "1 active" : `${room.active_users} active`;
+      item.innerHTML = `
+        <div class="room-item-info">
+          <span class="room-item-name">${escHtml(room.name)}</span>
+          <span class="room-item-meta">${users} · last message ${ago}</span>
+        </div>
+        <span class="room-item-code">${room.room_code}</span>
+        <span class="room-item-arrow">→</span>
+      `;
+      item.addEventListener("click", () => {
+        state.roomCode = room.room_code;
+        state.roomName = room.name;
+        showScreen("screen-username");
+      });
+      list.appendChild(item);
+    });
+  } catch(e) {
+    loading.textContent = "Could not load rooms.";
+  }
+}
+
+function timeAgo(ts) {
+  const diff = Math.floor(Date.now() / 1000 - ts);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  return `${Math.floor(diff/3600)}h ago`;
+}
+
+// ── Create Room ────────────────────────────────────────────────────────────
 let isPrivate = false;
 document.getElementById("toggle-public").addEventListener("click", () => {
   isPrivate = false;
   document.getElementById("toggle-public").classList.add("active");
   document.getElementById("toggle-private").classList.remove("active");
-  document.getElementById("visibility-hint").textContent = "Anyone with the code can join.";
+  document.getElementById("visibility-hint").textContent = "Room appears in the public room browser.";
 });
 document.getElementById("toggle-private").addEventListener("click", () => {
   isPrivate = true;
@@ -307,6 +431,7 @@ document.getElementById("btn-enter-own-room").addEventListener("click", async ()
   await enterRoom(state.roomCode, state.roomName, username, errEl);
 });
 
+// ── Join by code ───────────────────────────────────────────────────────────
 document.getElementById("btn-do-join").addEventListener("click", async () => {
   const code = document.getElementById("join-code").value.trim().toUpperCase();
   const errEl = document.getElementById("join-error");
@@ -321,6 +446,7 @@ document.getElementById("btn-do-join").addEventListener("click", async () => {
   } catch(e) { errEl.textContent = "Could not reach server."; }
 });
 
+// ── Username picker ────────────────────────────────────────────────────────
 document.getElementById("btn-do-username").addEventListener("click", async () => {
   const username = document.getElementById("username-input").value.trim();
   const errEl = document.getElementById("username-error");
@@ -329,6 +455,7 @@ document.getElementById("btn-do-username").addEventListener("click", async () =>
   await enterRoom(state.roomCode, state.roomName, username, errEl);
 });
 
+// ── Enter room ─────────────────────────────────────────────────────────────
 async function enterRoom(roomCode, roomName, username, errEl) {
   try {
     const res = await fetch(`${API}/rooms/${roomCode}/join`, { method:"POST", headers: HEADERS, body:JSON.stringify({username}) });
@@ -347,18 +474,36 @@ async function enterRoom(roomCode, roomName, username, errEl) {
   } catch(e) { errEl.textContent = "Could not reach server."; }
 }
 
-function startPolling() { stopPolling(); fetchMessages(); state.pollTimer = setInterval(fetchMessages, POLL_INTERVAL); }
+// ── Chat polling ───────────────────────────────────────────────────────────
+function startPolling() {
+  stopPolling();
+  fetchMessages();
+  state.pollTimer = setInterval(() => {
+    if (document.hidden) return;
+    if (!document.getElementById("screen-chat").classList.contains("active")) return;
+    fetchMessages();
+  }, POLL_INTERVAL);
+}
 function stopPolling() { if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; } }
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && document.getElementById("screen-chat").classList.contains("active")) {
+    fetchMessages();
+  }
+});
 
 async function fetchMessages() {
   try {
     const res = await fetch(`${API}/rooms/${state.roomCode}/messages`, { headers: HEADERS });
     const data = await res.json();
-    if (!res.ok) return;
+    if (!res.ok) {
+      // Room was deleted (expired)
+      if (res.status === 404) { handleRoomExpired(); return; }
+      return;
+    }
     const area = document.getElementById("messages-area");
     const newMsgs = data.messages.filter(msg => !state.lastMessageIds.has(msg.id));
     if (newMsgs.length > 0) {
-      // Remove the empty placeholder if present
       const placeholder = area.querySelector(".messages-empty");
       if (placeholder) placeholder.remove();
       newMsgs.forEach(msg => {
@@ -374,6 +519,17 @@ async function fetchMessages() {
   } catch(e) {}
 }
 
+function handleRoomExpired() {
+  stopPolling();
+  const area = document.getElementById("messages-area");
+  area.innerHTML = '<div class="messages-empty" style="color:var(--ember)">This room has expired due to inactivity.</div>';
+  setTimeout(() => {
+    state = { roomCode:null, roomName:null, sessionToken:null, username:null, ownerToken:null, lastMessageIds:new Set(), pollTimer:null };
+    document.getElementById("owner-panel").style.display = "none";
+    showScreen("screen-landing");
+  }, 3000);
+}
+
 async function sendMessage() {
   const input = document.getElementById("chat-input");
   const content = input.value.trim();
@@ -387,6 +543,7 @@ async function sendMessage() {
 document.getElementById("chat-send").addEventListener("click", sendMessage);
 document.getElementById("chat-input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 
+// ── Owner actions ──────────────────────────────────────────────────────────
 document.getElementById("btn-kick").addEventListener("click", async () => {
   const u = document.getElementById("kick-input").value.trim();
   if (!u) return;
@@ -403,6 +560,7 @@ async function ownerAction(action, username) {
   try { await fetch(`${API}/rooms/${state.roomCode}/${action}`, { method:"POST", headers: HEADERS, body:JSON.stringify({owner_token:state.ownerToken, username}) }); } catch(e) {}
 }
 
+// ── Leave room ─────────────────────────────────────────────────────────────
 document.getElementById("btn-leave").addEventListener("click", () => {
   stopPolling();
   state = { roomCode:null, roomName:null, sessionToken:null, username:null, ownerToken:null, lastMessageIds:new Set(), pollTimer:null };
@@ -411,6 +569,7 @@ document.getElementById("btn-leave").addEventListener("click", () => {
   showScreen("screen-landing");
 });
 
+// ── Utils ──────────────────────────────────────────────────────────────────
 function escHtml(str) { return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
   </script>
 </body>
