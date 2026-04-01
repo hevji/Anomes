@@ -242,8 +242,16 @@ html, body { height: 100%; background: var(--ink); color: var(--paper); font-fam
   </div>
 
   <script>
-const API = "https://preaffirmative-marx-semiacidic.ngrok-free.dev/api";
+const API = "http://localhost:5000/api";
 const POLL_INTERVAL = 3000;
+
+// ngrok-skip-browser-warning bypasses ngrok's interstitial HTML page
+// so fetch gets JSON instead of an HTML page that breaks JSON.parse
+const HEADERS = {
+  "Content-Type": "application/json",
+  "ngrok-skip-browser-warning": "true",
+};
+
 let state = { roomCode:null, roomName:null, sessionToken:null, username:null, ownerToken:null, lastMessageIds:new Set(), pollTimer:null };
 
 function showScreen(id) {
@@ -274,7 +282,7 @@ document.getElementById("btn-do-create").addEventListener("click", async () => {
   errEl.textContent = "";
   if (!name) { errEl.textContent = "A room needs a name."; return; }
   try {
-    const res = await fetch(`${API}/rooms/create`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name, is_private:isPrivate}) });
+    const res = await fetch(`${API}/rooms/create`, { method:"POST", headers: HEADERS, body:JSON.stringify({name, is_private:isPrivate}) });
     const data = await res.json();
     if (!res.ok) { errEl.textContent = data.error || "Failed to create room."; return; }
     state.roomCode = data.room_code; state.roomName = name; state.ownerToken = data.owner_token;
@@ -305,7 +313,7 @@ document.getElementById("btn-do-join").addEventListener("click", async () => {
   errEl.textContent = "";
   if (!code) { errEl.textContent = "Enter a room code."; return; }
   try {
-    const res = await fetch(`${API}/rooms/${code}`);
+    const res = await fetch(`${API}/rooms/${code}`, { headers: HEADERS });
     const data = await res.json();
     if (!res.ok) { errEl.textContent = data.error || "Room not found."; return; }
     state.roomCode = code; state.roomName = data.name;
@@ -323,7 +331,7 @@ document.getElementById("btn-do-username").addEventListener("click", async () =>
 
 async function enterRoom(roomCode, roomName, username, errEl) {
   try {
-    const res = await fetch(`${API}/rooms/${roomCode}/join`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username}) });
+    const res = await fetch(`${API}/rooms/${roomCode}/join`, { method:"POST", headers: HEADERS, body:JSON.stringify({username}) });
     const data = await res.json();
     if (!res.ok) { errEl.textContent = data.error || "Could not join room."; return; }
     state.sessionToken = data.session_token; state.username = username;
@@ -344,24 +352,25 @@ function stopPolling() { if (state.pollTimer) { clearInterval(state.pollTimer); 
 
 async function fetchMessages() {
   try {
-    const res = await fetch(`${API}/rooms/${state.roomCode}/messages`);
+    const res = await fetch(`${API}/rooms/${state.roomCode}/messages`, { headers: HEADERS });
     const data = await res.json();
     if (!res.ok) return;
     const area = document.getElementById("messages-area");
-    const isEmpty = area.querySelector(".messages-empty");
-    let addedAny = false;
-    data.messages.forEach(msg => {
-      if (state.lastMessageIds.has(msg.id)) return;
-      state.lastMessageIds.add(msg.id);
-      if (isEmpty) isEmpty.remove();
-      const el = document.createElement("div");
-      el.className = "message";
-      const time = new Date(msg.timestamp).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
-      el.innerHTML = `<div class="message-header"><span class="message-author">${escHtml(msg.username)}</span><span class="message-time">${time}</span></div><div class="message-content">${escHtml(msg.content)}</div>`;
-      area.appendChild(el);
-      addedAny = true;
-    });
-    if (addedAny) area.scrollTop = area.scrollHeight;
+    const newMsgs = data.messages.filter(msg => !state.lastMessageIds.has(msg.id));
+    if (newMsgs.length > 0) {
+      // Remove the empty placeholder if present
+      const placeholder = area.querySelector(".messages-empty");
+      if (placeholder) placeholder.remove();
+      newMsgs.forEach(msg => {
+        state.lastMessageIds.add(msg.id);
+        const el = document.createElement("div");
+        el.className = "message";
+        const time = new Date(msg.timestamp).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+        el.innerHTML = `<div class="message-header"><span class="message-author">${escHtml(msg.username)}</span><span class="message-time">${time}</span></div><div class="message-content">${escHtml(msg.content)}</div>`;
+        area.appendChild(el);
+      });
+      area.scrollTop = area.scrollHeight;
+    }
   } catch(e) {}
 }
 
@@ -371,7 +380,7 @@ async function sendMessage() {
   if (!content) return;
   input.value = "";
   try {
-    await fetch(`${API}/rooms/${state.roomCode}/send`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({session_token:state.sessionToken, content}) });
+    await fetch(`${API}/rooms/${state.roomCode}/send`, { method:"POST", headers: HEADERS, body:JSON.stringify({session_token:state.sessionToken, content}) });
   } catch(e) {}
 }
 
@@ -391,7 +400,7 @@ document.getElementById("btn-ban").addEventListener("click", async () => {
   document.getElementById("ban-input").value = "";
 });
 async function ownerAction(action, username) {
-  try { await fetch(`${API}/rooms/${state.roomCode}/${action}`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({owner_token:state.ownerToken, username}) }); } catch(e) {}
+  try { await fetch(`${API}/rooms/${state.roomCode}/${action}`, { method:"POST", headers: HEADERS, body:JSON.stringify({owner_token:state.ownerToken, username}) }); } catch(e) {}
 }
 
 document.getElementById("btn-leave").addEventListener("click", () => {
